@@ -17,7 +17,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   late String _title;
   String? _description;
   DateTime _dueDate = DateTime.now();
-  TimeOfDay? _reminderTime;
+  DateTime? _reminderTime;
 
   @override
   void initState() {
@@ -47,13 +47,24 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   }
 
   Future<void> _selectTime(BuildContext context) async {
+    TimeOfDay initialTime = _reminderTime != null
+        ? TimeOfDay(hour: _reminderTime!.hour, minute: _reminderTime!.minute)
+        : TimeOfDay.now();
+
     final picked = await showTimePicker(
       context: context,
-      initialTime: _reminderTime ?? TimeOfDay.now(),
+      initialTime: initialTime,
     );
     if (picked != null) {
       setState(() {
-        _reminderTime = picked;
+        // Convert TimeOfDay to DateTime while keeping the same date as _dueDate
+        _reminderTime = DateTime(
+          _dueDate.year,
+          _dueDate.month,
+          _dueDate.day,
+          picked.hour,
+          picked.minute,
+        );
       });
     }
   }
@@ -94,7 +105,8 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
               TextFormField(
                 initialValue: _title,
                 decoration: const InputDecoration(labelText: 'Title'),
-                validator: (value) => value == null || value.isEmpty ? 'Title required' : null,
+                validator: (value) =>
+                    value == null || value.isEmpty ? 'Title required' : null,
                 onSaved: (value) => _title = value!,
               ),
               TextFormField(
@@ -103,7 +115,8 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                 onSaved: (value) => _description = value,
               ),
               ListTile(
-                title: Text('Due Date: ${_dueDate.toLocal().toString().split(' ')[0]}'),
+                title: Text(
+                    'Due Date: ${_dueDate.toLocal().toString().split(' ')[0]}'),
                 trailing: Icon(Icons.calendar_today),
                 onTap: () => _selectDate(context),
               ),
@@ -113,7 +126,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                 onChanged: (val) {
                   setState(() {
                     if (val) {
-                      _reminderTime = TimeOfDay.now();
+                      _reminderTime = DateTime.now();
                     } else {
                       _reminderTime = null;
                     }
@@ -122,7 +135,8 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
               ),
               if (_reminderTime != null)
                 ListTile(
-                  title: Text('Reminder Time: ${_reminderTime!.format(context)}'),
+                  title: Text(
+                      'Reminder Time: ${TimeOfDay.fromDateTime(_reminderTime!).format(context)}'),
                   trailing: Icon(Icons.access_time),
                   onTap: () => _selectTime(context),
                 ),

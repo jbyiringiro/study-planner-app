@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../services/storage_service.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({Key? key}) : super(key: key);
-
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
+  _SettingsScreenState createState() => _SettingsScreenState();
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _remindersEnabled = true;
-  String _storageMethod = 'Local';
+  final StorageService _storageService = StorageService();
+  bool _notificationsEnabled = true;
 
   @override
   void initState() {
@@ -19,50 +17,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
+    final notificationsEnabled =
+        await _storageService.getNotificationsEnabled();
     setState(() {
-      _remindersEnabled = prefs.getBool('remindersEnabled') ?? true;
-      _storageMethod = prefs.getString('storageMethod') ?? 'Local';
+      _notificationsEnabled = notificationsEnabled;
     });
   }
 
-  Future<void> _toggleReminders(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('remindersEnabled', value);
+  Future<void> _toggleNotifications(bool value) async {
+    await _storageService.setNotificationsEnabled(value);
     setState(() {
-      _remindersEnabled = value;
+      _notificationsEnabled = value;
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Notifications', style: TextStyle(fontSize: 18)),
-                Switch(
-                  value: _remindersEnabled,
-                  onChanged: _toggleReminders,
-                ),
-              ],
+      appBar: AppBar(
+        title: Text('Settings'),
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
+      ),
+      body: ListView(
+        padding: EdgeInsets.all(16),
+        children: [
+          Card(
+            child: ListTile(
+              leading: Icon(Icons.notifications, color: Colors.blue),
+              title: Text('Enable Notifications'),
+              trailing: Switch(
+                value: _notificationsEnabled,
+                onChanged: _toggleNotifications,
+              ),
             ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Storage', style: TextStyle(fontSize: 18)),
-                Text(_storageMethod),
-              ],
+          ),
+          SizedBox(height: 16),
+          Card(
+            child: ListTile(
+              leading: Icon(Icons.info, color: Colors.blue),
+              title: Text('About'),
+              subtitle: Text('Study Planner App v1.0'),
+              onTap: () {
+                showAboutDialog(
+                  context: context,
+                  applicationName: 'Study Planner',
+                  applicationVersion: '1.0.0',
+                );
+              },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

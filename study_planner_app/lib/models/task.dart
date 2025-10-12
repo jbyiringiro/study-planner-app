@@ -1,11 +1,10 @@
-import 'package:flutter/material.dart';
-
 class Task {
-  String id;
+  final String id;
   String title;
   String? description;
   DateTime dueDate;
-  TimeOfDay? reminderTime;
+  DateTime? reminderTime;
+  bool isCompleted;
 
   Task({
     required this.id,
@@ -13,35 +12,28 @@ class Task {
     this.description,
     required this.dueDate,
     this.reminderTime,
+    this.isCompleted = false,
   });
 
-  // For local storage (shared_preferences as JSON)
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'title': title,
-        'description': description,
-        'dueDate': dueDate.toIso8601String(),
-        'reminderTime': reminderTime != null
-            ? '${reminderTime!.hour}:${reminderTime!.minute}'
-            : null,
-      };
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'dueDate': dueDate.toIso8601String(),
+      'reminderTime': reminderTime?.toIso8601String(),
+      'isCompleted': isCompleted,
+    };
+  }
 
   factory Task.fromJson(Map<String, dynamic> json) {
-    final reminder = json['reminderTime'];
-    TimeOfDay? reminderTime;
-    if (reminder != null) {
-      final parts = reminder.split(':');
-      reminderTime = TimeOfDay(
-        hour: int.parse(parts[0]),
-        minute: int.parse(parts[1]),
-      );
-    }
     return Task(
       id: json['id'],
       title: json['title'],
       description: json['description'],
       dueDate: DateTime.parse(json['dueDate']),
-      reminderTime: reminderTime,
+      reminderTime: json['reminderTime'] != null ? DateTime.parse(json['reminderTime']) : null,
+      isCompleted: json['isCompleted'] ?? false,
     );
   }
 }

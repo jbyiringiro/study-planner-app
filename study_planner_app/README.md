@@ -1,4 +1,4 @@
-# study_planner_app
+# study_app
 
 A new Flutter project.
 

@@ -1,97 +1,127 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../providers/task_provider.dart';
+import '../services/storage_service.dart';
+import '../services/notification_service.dart';
 import '../models/task.dart';
-
+import '../widgets/task_list.dart';
 
 class TodayScreen extends StatefulWidget {
-  const TodayScreen({super.key});
-
   @override
-  State<TodayScreen> createState() => _TodayScreenState();
+  _TodayScreenState createState() => _TodayScreenState();
 }
 
 class _TodayScreenState extends State<TodayScreen> {
-  bool _reminderShown = false;
+  final StorageService _storageService = StorageService();
+  final NotificationService _notificationService = NotificationService();
+  List<Task> _todayTasks = [];
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!_reminderShown) {
-      final todayTasks = context.watch<TaskProvider>().todayTasks();
-      final now = TimeOfDay.now();
-      for (final task in todayTasks) {
-        if (task.reminderTime != null &&
-            task.reminderTime!.hour == now.hour &&
-            task.reminderTime!.minute == now.minute) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            showDialog(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                title: Text('Reminder'),
-                content: Text('It\'s time for: ${task.title}'),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(ctx).pop(),
-                    child: const Text('OK'),
-                  ),
-                ],
+  void initState() {
+    super.initState();
+    _loadTodayTasks();
+  }
+
+  Future<void> _loadTodayTasks() async {
+    final allTasks = await _storageService.getTasks();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    
+    setState(() {
+      _todayTasks = allTasks.where((task) {
+        final taskDate = DateTime(task.dueDate.year, task.dueDate.month, task.dueDate.day);
+        return taskDate == today;
+      }).toList();
+    });
+  }
+
+  Widget _buildUpcomingReminders() {
+    return FutureBuilder<List<Task>>(
+      future: _notificationService.getUpcomingReminders(),
+      builder: (context, snapshot) {
+        if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+          final upcomingTasks = snapshot.data!;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text(
+                  'Upcoming Reminders (Next Hour)',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
+                ),
               ),
-            );
-          });
-          _reminderShown = true;
-          break;
+              ...upcomingTasks.map((task) => Card(
+                margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                color: Colors.blue.shade50,
+                child: ListTile(
+                  leading: Icon(Icons.notifications, color: Colors.blue),
+                  title: Text(task.title),
+                  subtitle: Text('Reminder: ${_formatDateTime(task.reminderTime!)}'),
+                  trailing: Icon(Icons.access_time, color: Colors.blue),
+                ),
+              )).toList(),
+            ],
+          );
         }
-      }
-    }
+        return SizedBox.shrink();
+      },
+    );
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    return '${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
   }
 
   @override
   Widget build(BuildContext context) {
-    final todayTasks = context.watch<TaskProvider>().todayTasks();
     return Scaffold(
-      appBar: AppBar(title: const Text('Today')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView.builder(
-                itemCount: todayTasks.length,
-                itemBuilder: (context, index) {
-                  final task = todayTasks[index];
-                  return ListTile(
-                    title: Text(task.title),
-                    subtitle: Text(task.description ?? ''),
-                    trailing: Text(
-                      '${task.dueDate.hour}:${task.dueDate.minute.toString().padLeft(2, '0')}',
-                    ),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => TaskFormScreen(task: task),
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
+      appBar: AppBar(
+        title: Text('Today'),
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Today',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  _getFormattedDate(),
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+              ],
             ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const TaskFormScreen(),
-                  ),
-                );
-              },
-              child: const Text('New Task'),
+          ),
+          _buildUpcomingReminders(),
+          Expanded(
+            child: TaskList(
+              tasks: _todayTasks,
+              onTaskUpdated: _loadTodayTasks,
+              emptyMessage: 'No tasks for today!',
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
+  }
+
+  String _getFormattedDate() {
+    final now = DateTime.now();
+    return '${_getWeekday(now.weekday)}, ${now.day} ${_getMonth(now.month)} ${now.year}';
+  }
+
+  String _getWeekday(int weekday) {
+    return ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][weekday - 1];
+  }
+
+  String _getMonth(int month) {
+    return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][month - 1];
   }
 }

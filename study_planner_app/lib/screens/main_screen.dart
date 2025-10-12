@@ -14,9 +14,9 @@ class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
   final List<Widget> _screens = [
-    const TodayScreen(),
-    const CalendarScreen(),
-    const SettingsScreen(),
+    TodayScreen(),
+    CalendarScreen(),
+    SettingsScreen(),
   ];
 
   void _onItemTapped(int index) {
